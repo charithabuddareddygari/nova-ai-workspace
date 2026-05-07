@@ -1,27 +1,69 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { CheckCircle2, Clock, AlertTriangle, Flame, Trophy, Zap } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, Flame, Trophy, Zap, Inbox, ArrowRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/")({ component: MemberOverview });
 
 const TREND = Array.from({ length: 7 }, (_, i) => ({ d: ["M","T","W","T","F","S","S"][i], v: Math.round(2 + Math.random() * 8) }));
 
+interface AssignedTask {
+  id: string; title: string; description: string | null;
+  status: string; priority: string; deadline: string | null; created_at: string;
+}
+
 function MemberOverview() {
   const { profile } = useAuth();
   const [counts, setCounts] = useState({ pending: 0, completed: 0, overdue: 0 });
+  const [assigned, setAssigned] = useState<AssignedTask[]>([]);
 
   useEffect(() => {
     if (!profile) return;
-    Promise.all([
+    const loadCounts = () => Promise.all([
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assigned_to", profile.id).neq("status", "completed"),
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assigned_to", profile.id).eq("status", "completed"),
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assigned_to", profile.id).lt("deadline", new Date().toISOString()).neq("status", "completed"),
     ]).then(([p, c, o]) => setCounts({ pending: p.count ?? 0, completed: c.count ?? 0, overdue: o.count ?? 0 }));
+
+    const loadAssigned = () => supabase
+      .from("tasks")
+      .select("id,title,description,status,priority,deadline,created_at")
+      .eq("assigned_to", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(8)
+      .then(({ data }) => setAssigned((data ?? []) as AssignedTask[]));
+
+    loadCounts();
+    loadAssigned();
+
+    const ch = supabase
+      .channel("dashboard-assigned")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${profile.id}` },
+        (payload) => {
+          loadCounts();
+          loadAssigned();
+          if (payload.eventType === "INSERT") {
+            const t = payload.new as AssignedTask;
+            toast.success(`New task assigned: ${t.title}`);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
   }, [profile]);
+
+  const priorityColor: Record<string, string> = {
+    low: "text-[var(--neon-green)]",
+    medium: "text-[var(--neon-cyan)]",
+    high: "text-[var(--neon-pink)]",
+  };
 
   if (!profile) return null;
 
