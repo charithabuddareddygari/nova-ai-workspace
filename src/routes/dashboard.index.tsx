@@ -126,6 +126,45 @@ function MemberOverview() {
           </div>
         </div>
       </div>
+
+      <div className="glass-strong rounded-2xl border-gradient overflow-hidden">
+        <div className="px-6 py-4 flex items-center justify-between border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-[var(--neon-cyan)]" />
+            <h3 className="font-semibold">Assigned to you</h3>
+            <span className="text-xs text-muted-foreground">({assigned.length})</span>
+          </div>
+          <Link to="/dashboard/tasks" className="text-xs text-[var(--neon-cyan)] hover:underline flex items-center gap-1">
+            View all <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {assigned.length === 0 ? (
+          <div className="p-10 text-center text-sm text-muted-foreground">
+            No tasks assigned yet. When an admin assigns work to you, it will appear here in real-time.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {assigned.map((t) => {
+              const overdue = t.deadline && new Date(t.deadline) < new Date() && t.status !== "completed";
+              return (
+                <div key={t.id} className="px-6 py-4 flex items-center gap-4 hover:bg-card/30 transition">
+                  <div className={`text-[10px] uppercase font-semibold tracking-wider ${priorityColor[t.priority] ?? ""}`}>{t.priority}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{t.title}</div>
+                    {t.description && <div className="text-xs text-muted-foreground truncate">{t.description}</div>}
+                  </div>
+                  <div className="text-xs px-2.5 py-1 rounded-full glass capitalize">{t.status.replace("_", " ")}</div>
+                  {t.deadline && (
+                    <div className={`text-xs ${overdue ? "text-[var(--neon-pink)]" : "text-muted-foreground"}`}>
+                      {new Date(t.deadline).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
