@@ -25,6 +25,7 @@ import { Route as AdminTasksRouteImport } from './routes/admin.tasks'
 import { Route as AdminProjectsRouteImport } from './routes/admin.projects'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
+import { Route as ApiUsersCompanyMembersRouteImport } from './routes/api/users.company-members'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -106,6 +107,11 @@ const AdminAiRoute = AdminAiRouteImport.update({
   path: '/ai',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiUsersCompanyMembersRoute = ApiUsersCompanyMembersRouteImport.update({
+  id: '/api/users/company-members',
+  path: '/api/users/company-members',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/tasks': typeof DashboardTasksRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/api/users/company-members': typeof ApiUsersCompanyMembersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/dashboard/tasks': typeof DashboardTasksRoute
   '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/api/users/company-members': typeof ApiUsersCompanyMembersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/dashboard/tasks': typeof DashboardTasksRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/api/users/company-members': typeof ApiUsersCompanyMembersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/dashboard/tasks'
     | '/admin/'
     | '/dashboard/'
+    | '/api/users/company-members'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/dashboard/tasks'
     | '/admin'
     | '/dashboard'
+    | '/api/users/company-members'
   id:
     | '__root__'
     | '/'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/dashboard/tasks'
     | '/admin/'
     | '/dashboard/'
+    | '/api/users/company-members'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiUsersCompanyMembersRoute: typeof ApiUsersCompanyMembersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/users/company-members': {
+      id: '/api/users/company-members'
+      path: '/api/users/company-members'
+      fullPath: '/api/users/company-members'
+      preLoaderRoute: typeof ApiUsersCompanyMembersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiUsersCompanyMembersRoute: ApiUsersCompanyMembersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
