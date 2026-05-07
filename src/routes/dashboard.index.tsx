@@ -1,27 +1,69 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { CheckCircle2, Clock, AlertTriangle, Flame, Trophy, Zap } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, Flame, Trophy, Zap, Inbox, ArrowRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/")({ component: MemberOverview });
 
 const TREND = Array.from({ length: 7 }, (_, i) => ({ d: ["M","T","W","T","F","S","S"][i], v: Math.round(2 + Math.random() * 8) }));
 
+interface AssignedTask {
+  id: string; title: string; description: string | null;
+  status: string; priority: string; deadline: string | null; created_at: string;
+}
+
 function MemberOverview() {
   const { profile } = useAuth();
   const [counts, setCounts] = useState({ pending: 0, completed: 0, overdue: 0 });
+  const [assigned, setAssigned] = useState<AssignedTask[]>([]);
 
   useEffect(() => {
     if (!profile) return;
-    Promise.all([
+    const loadCounts = () => Promise.all([
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assigned_to", profile.id).neq("status", "completed"),
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assigned_to", profile.id).eq("status", "completed"),
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assigned_to", profile.id).lt("deadline", new Date().toISOString()).neq("status", "completed"),
     ]).then(([p, c, o]) => setCounts({ pending: p.count ?? 0, completed: c.count ?? 0, overdue: o.count ?? 0 }));
+
+    const loadAssigned = () => supabase
+      .from("tasks")
+      .select("id,title,description,status,priority,deadline,created_at")
+      .eq("assigned_to", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(8)
+      .then(({ data }) => setAssigned((data ?? []) as AssignedTask[]));
+
+    loadCounts();
+    loadAssigned();
+
+    const ch = supabase
+      .channel("dashboard-assigned")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks", filter: `assigned_to=eq.${profile.id}` },
+        (payload) => {
+          loadCounts();
+          loadAssigned();
+          if (payload.eventType === "INSERT") {
+            const t = payload.new as AssignedTask;
+            toast.success(`New task assigned: ${t.title}`);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
   }, [profile]);
+
+  const priorityColor: Record<string, string> = {
+    low: "text-[var(--neon-green)]",
+    medium: "text-[var(--neon-cyan)]",
+    high: "text-[var(--neon-pink)]",
+  };
 
   if (!profile) return null;
 
@@ -83,6 +125,45 @@ function MemberOverview() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="glass-strong rounded-2xl border-gradient overflow-hidden">
+        <div className="px-6 py-4 flex items-center justify-between border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-[var(--neon-cyan)]" />
+            <h3 className="font-semibold">Assigned to you</h3>
+            <span className="text-xs text-muted-foreground">({assigned.length})</span>
+          </div>
+          <Link to="/dashboard/tasks" className="text-xs text-[var(--neon-cyan)] hover:underline flex items-center gap-1">
+            View all <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {assigned.length === 0 ? (
+          <div className="p-10 text-center text-sm text-muted-foreground">
+            No tasks assigned yet. When an admin assigns work to you, it will appear here in real-time.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {assigned.map((t) => {
+              const overdue = t.deadline && new Date(t.deadline) < new Date() && t.status !== "completed";
+              return (
+                <div key={t.id} className="px-6 py-4 flex items-center gap-4 hover:bg-card/30 transition">
+                  <div className={`text-[10px] uppercase font-semibold tracking-wider ${priorityColor[t.priority] ?? ""}`}>{t.priority}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{t.title}</div>
+                    {t.description && <div className="text-xs text-muted-foreground truncate">{t.description}</div>}
+                  </div>
+                  <div className="text-xs px-2.5 py-1 rounded-full glass capitalize">{t.status.replace("_", " ")}</div>
+                  {t.deadline && (
+                    <div className={`text-xs ${overdue ? "text-[var(--neon-pink)]" : "text-muted-foreground"}`}>
+                      {new Date(t.deadline).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
